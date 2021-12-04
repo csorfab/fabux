@@ -1,6 +1,7 @@
-import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef } from "react";
 import { Store, AnyAction, Dispatch, Undo, Subscriber } from "./fabux";
-import { createDeferredExecutionQueue } from "./deferredExecutionQueue";
+import { createDeferredExecutionQueue } from "./utils/deferredExecutionQueue";
+import { useForceUpdate } from "./utils/useForceUpdate";
 
 export const FabuxContext = createContext<Store<any, AnyAction> | null>(null);
 
@@ -29,6 +30,25 @@ export function useStore<State, Action extends AnyAction>(): Store<State, Action
     return store as unknown as Store<State, Action>;
 }
 
+export function useSubscription(subscriber: Subscriber, deps: any[]) {
+    const store = useStore();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const memoizedSubscriber = useMemo(() => subscriber, deps);
+
+    useEffect(() => {
+        const queue = createDeferredExecutionQueue();
+        const storeSubscriber = () => {
+            queue.execute(memoizedSubscriber);
+        };
+        const unsubscribeFromStore = store.subscribe(storeSubscriber);
+        return () => {
+            unsubscribeFromStore();
+            queue.clear();
+        };
+    }, [store, memoizedSubscriber]);
+}
+
 interface DispatchListener<Action extends AnyAction> {
     (action: Action): void;
 }
@@ -45,62 +65,25 @@ export function useDispatchListener<Action extends AnyAction>(listener: Dispatch
             queue.execute(() => memoizedListener(action));
             return action;
         };
-        const unsubscribe = store.addMiddleware(middleware);
+        const removeMiddleware = store.addMiddleware(middleware);
         return () => {
-            unsubscribe();
+            removeMiddleware();
             queue.clear();
         };
     }, [store, memoizedListener]);
 }
 
-export function useSubscription(subscriber: Subscriber, deps: any[]) {
-    const store = useStore();
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const memoizedSubscriber = useMemo(() => subscriber, deps);
-
-    useEffect(() => {
-        const queue = createDeferredExecutionQueue();
-        const subscriber = () => {
-            queue.execute(memoizedSubscriber);
-        };
-        const unsubscribe = store.subscribe(subscriber);
-        return () => {
-            unsubscribe();
-            queue.clear();
-        };
-    }, [store, memoizedSubscriber]);
-}
-
-export function useCanUndo() {
-    const store = useStore();
-    const [canUndo, setCanUndo] = useState(() => store.canUndo());
-    const canUndoRef = useRef(canUndo);
-
-    useSubscription(() => {
-        const newCanUndo = store.canUndo();
-        if (newCanUndo !== canUndoRef.current) {
-            canUndoRef.current = newCanUndo;
-            setCanUndo(newCanUndo);
-        }
-    }, [store]);
-
-    return canUndo;
-}
-
-function useForceUpdate() {
-    const [, setCounter] = useState(0);
-    return useCallback(() => setCounter((count) => count + 1), []);
-}
+const uninitializedSymbol = Symbol("uninitialized");
+type Uninitialized = typeof uninitializedSymbol;
 
 export function useSelector<State, SelectedValue>(selector: Selector<State, SelectedValue>): SelectedValue {
     const store = useStore<State, AnyAction>();
     const forceUpdate = useForceUpdate();
 
-    const selectorRef = useRef<Selector<State, SelectedValue>>();
-    const selectedValueRef = useRef<SelectedValue>();
+    const selectorRef = useRef<Selector<State, SelectedValue>>(selector);
+    const selectedValueRef = useRef<SelectedValue | Uninitialized>(uninitializedSymbol);
 
-    if (selectorRef.current !== selector) {
+    if (selectorRef.current !== selector || selectedValueRef.current === uninitializedSymbol) {
         selectorRef.current = selector;
         const nextValue = selector(store.getState());
         if (selectedValueRef.current !== nextValue) {
@@ -110,14 +93,14 @@ export function useSelector<State, SelectedValue>(selector: Selector<State, Sele
 
     useSubscription(() => {
         const selector = selectorRef.current;
-        const nextValue = selector!(store.getState());
+        const nextValue = selector(store.getState());
         if (selectedValueRef.current !== nextValue) {
             selectedValueRef.current = nextValue;
             forceUpdate();
         }
     }, [store, forceUpdate]);
 
-    return selectedValueRef.current!;
+    return selectedValueRef.current;
 }
 
 export function useDispatch<Action extends AnyAction>(): Dispatch<Action> {
@@ -126,4 +109,23 @@ export function useDispatch<Action extends AnyAction>(): Dispatch<Action> {
 
 export function useUndo<Action extends AnyAction>(): Undo<Action> {
     return useStore<any, Action>().undo;
+}
+
+export function useCanUndo(): boolean {
+    const store = useStore();
+    const forceUpdate = useForceUpdate();
+    const canUndoRef = useRef<boolean>();
+    if (canUndoRef.current === undefined) {
+        canUndoRef.current = store.canUndo();
+    }
+
+    useSubscription(() => {
+        const canUndo = store.canUndo();
+        if (canUndo !== canUndoRef.current) {
+            canUndoRef.current = canUndo;
+            forceUpdate();
+        }
+    }, [store]);
+
+    return canUndoRef.current;
 }

@@ -73,6 +73,6 @@
       "react",
       "import"
     ],
-    "ignorePatterns": "dist/"
+    "ignorePatterns": ["dist/"]
   }
   

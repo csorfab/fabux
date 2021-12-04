@@ -1,9 +1,12 @@
 {
   "compilerOptions": {
     "lib": ["ES2015", "DOM"],
-    "target": "ES2015",
+    "target": "es5",
+    "module": "commonjs",
     "baseUrl": "src",
     "outDir": "dist",
+    "declaration": true,
+    "declarationDir": "dist",
     "esModuleInterop": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
@@ -13,7 +16,7 @@
     "sourceMap": true,
     "jsx": "react-jsx",
     "downlevelIteration": true,
-    "inlineSources": true
+    "inlineSources": true,
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "tests"]

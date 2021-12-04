@@ -7,5 +7,6 @@ export {
     useStore,
     useSubscription,
     useUndo,
-    FabuxContext as ReduxContext,
+    Provider,
+    FabuxContext,
 } from "./lib/react-fabux";
