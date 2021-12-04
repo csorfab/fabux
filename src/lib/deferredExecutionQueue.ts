@@ -1,4 +1,3 @@
-
 export interface Cancel {
     (): void;
 }
@@ -14,7 +13,7 @@ export interface DeferredExecutionQueue {
 }
 
 export function createDeferredExecutionQueue(): DeferredExecutionQueue {
-    let queue = new Map<Symbol, Task>();
+    const queue = new Map<Symbol, Task>();
     let currentTimeout: number | null = null;
 
     function runAllTasks() {
@@ -57,6 +56,6 @@ export function createDeferredExecutionQueue(): DeferredExecutionQueue {
         clear() {
             cancelTimeout();
             queue.clear();
-        }
+        },
     };
 }

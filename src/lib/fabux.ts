@@ -41,9 +41,9 @@ function invoke<T extends () => void>(f: T) {
 
 export function createStore<State, Action extends AnyAction>(
     rootReducer: Reducer<State, Action>,
-    initialState: State
+    initialState: State,
 ): Store<State, Action> {
-    let actionHistory: Action[] = [];
+    const actionHistory: Action[] = [];
     let state = initialState;
     const subscribers = new Map<Symbol, Subscriber>();
     const middlewares = new Map<Symbol, Middleware<Action>>();
@@ -62,10 +62,7 @@ export function createStore<State, Action extends AnyAction>(
             return state;
         },
         dispatch(action) {
-            action = Array.from(middlewares.values()).reduce(
-                (action, middleware) => middleware(action),
-                action
-            );
+            action = Array.from(middlewares.values()).reduce((action, middleware) => middleware(action), action);
             actionHistory.push(action);
             const nextState = rootReducer(state, action);
             setState(nextState);
@@ -97,6 +94,6 @@ export function createStore<State, Action extends AnyAction>(
         },
         canUndo() {
             return actionHistory.length > 0;
-        }
+        },
     };
 }

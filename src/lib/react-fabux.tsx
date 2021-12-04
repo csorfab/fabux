@@ -1,15 +1,6 @@
-import {
-    createContext,
-    PropsWithChildren,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState
-} from "react";
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Store, AnyAction, Dispatch, Undo, Subscriber } from "./fabux";
-import { createDeferredExecutionQueue } from "./defferedExecutionQueue"
+import { createDeferredExecutionQueue } from "./deferredExecutionQueue";
 
 export const FabuxContext = createContext<Store<any, AnyAction> | null>(null);
 
@@ -19,14 +10,10 @@ interface ProviderProps<State, Action extends AnyAction> {
 
 export function Provider<State, Action extends AnyAction>({
     store,
-    children
+    children,
 }: PropsWithChildren<ProviderProps<State, Action>>) {
     return (
-        <FabuxContext.Provider
-            value={(store as unknown) as Store<State, AnyAction>}
-        >
-            {children}
-        </FabuxContext.Provider>
+        <FabuxContext.Provider value={store as unknown as Store<State, AnyAction>}>{children}</FabuxContext.Provider>
     );
 }
 
@@ -34,27 +21,24 @@ interface Selector<State, SelectedValue> {
     (state: State): SelectedValue;
 }
 
-export function useStore<State, Action extends AnyAction>(): Store<
-    State,
-    Action
-> {
+export function useStore<State, Action extends AnyAction>(): Store<State, Action> {
     const store = useContext(FabuxContext);
     if (!store) {
         throw new Error("useStore: no Redux store provided");
     }
-    return (store as unknown) as Store<State, Action>;
+    return store as unknown as Store<State, Action>;
 }
 
 interface DispatchListener<Action extends AnyAction> {
     (action: Action): void;
 }
 
-export function useDispatchListener<Action extends AnyAction>(
-    listener: DispatchListener<Action>,
-    deps: any[]
-) {
+export function useDispatchListener<Action extends AnyAction>(listener: DispatchListener<Action>, deps: any[]) {
     const store = useStore<any, Action>();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const memoizedListener = useMemo(() => listener, deps);
+
     useEffect(() => {
         const queue = createDeferredExecutionQueue();
         const middleware = (action: Action) => {
@@ -71,7 +55,10 @@ export function useDispatchListener<Action extends AnyAction>(
 
 export function useSubscription(subscriber: Subscriber, deps: any[]) {
     const store = useStore();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const memoizedSubscriber = useMemo(() => subscriber, deps);
+
     useEffect(() => {
         const queue = createDeferredExecutionQueue();
         const subscriber = () => {
@@ -106,9 +93,7 @@ function useForceUpdate() {
     return useCallback(() => setCounter((count) => count + 1), []);
 }
 
-export function useSelector<State, SelectedValue>(
-    selector: Selector<State, SelectedValue>
-): SelectedValue {
+export function useSelector<State, SelectedValue>(selector: Selector<State, SelectedValue>): SelectedValue {
     const store = useStore<State, AnyAction>();
     const forceUpdate = useForceUpdate();
 
